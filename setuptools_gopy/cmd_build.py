@@ -124,6 +124,8 @@ class build_gopy(GopyCommand):
 
         # 4. let's check first if we already installed it
         goarch = platform.machine().lower()
+        if goarch == "aarch64":
+            goarch = "arm64"
         goos = platform.system().lower()
         install_dir = f"{self.go_install_folder}.{goos}-{goarch}"
         gobase = os.path.abspath(os.path.join(install_dir, wanted_version))

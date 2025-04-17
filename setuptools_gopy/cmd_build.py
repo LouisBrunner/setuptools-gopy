@@ -12,7 +12,7 @@ import tarfile
 import urllib.request
 import zipfile
 from os.path import basename
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 
 from setuptools.errors import (
     CompileError,
@@ -133,6 +133,7 @@ class build_gopy(GopyCommand):
         )
 
         urllib.request.urlretrieve(archive_url, archive_path)
+        extractor: Union[zipfile.ZipFile, tarfile.TarFile]
         if IS_WINDOWS:
             extractor = zipfile.ZipFile(archive_path, "r")
         else:

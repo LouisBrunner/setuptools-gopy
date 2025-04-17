@@ -1,8 +1,9 @@
 import logging
+import os
 from abc import ABC, abstractmethod
 from typing import List, Optional
 
-from setuptools import Command, Distribution
+from setuptools import Command
 
 from .extension import GopyExtension
 
@@ -12,11 +13,7 @@ logger = logging.getLogger(__name__)
 class GopyCommand(Command, ABC):
     """Abstract base class for commands which interact with Gopy Extensions."""
 
-    # Types for distutils variables which exist on all commands but seem to be
-    # missing from https://github.com/python/typeshed/blob/master/stdlib/distutils/cmd.pyi
-    distribution: Distribution
-    verbose: int
-    build_dir: str = "build/setuptools-gopy"
+    build_dir: str = os.path.join("build", "setuptools-gopy")
 
     def initialize_options(self) -> None:
         self.extensions: List[GopyExtension] = []

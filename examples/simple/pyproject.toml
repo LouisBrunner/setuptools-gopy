@@ -11,3 +11,5 @@ packages = ["python.simple"]
 
 [[tool.setuptools-gopy.ext-packages]]
 target = "github.com/LouisBrunner/setuptools-gopy/examples/simple"
+# optional: select which version of Go to install (otherwise expects the system to have it installed)
+go_version = "1.24.1"

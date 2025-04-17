@@ -1,0 +1,41 @@
+[project]
+name = "setuptools-gopy"
+version = "0.0.1"
+description = "Setuptools Gopy extension plugin"
+readme = "README.md"
+requires-python = ">=3.13"
+keywords = ["distutils", "setuptools", "go", "golang"]
+authors = [{ name = "Louis Brunner", email = "pip@lbrunner.net" }]
+license = "MPL-2.0"
+classifiers = [
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+  "Development Status :: 3 - Alpha",
+  "Operating System :: OS Independent",
+]
+
+dependencies = ["setuptools>=62.4", "pybindgen==0.22.1"]
+
+[project.entry-points."distutils.commands"]
+build_gopy = "setuptools_gopy:build_gopy"
+
+[project.entry-points."distutils.setup_keywords"]
+gopy_extensions = "setuptools_gopy.setuptools_ext:gopy_extensions"
+
+[project.entry-points."setuptools.finalize_distribution_options"]
+setuptools_gopy = "setuptools_gopy.setuptools_ext:pyprojecttoml_config"
+
+[project.urls]
+Homepage = "https://github.com/LouisBrunner/setuptools-gopy"
+Repository = "https://github.com/LouisBrunner/setuptools-gopy"
+
+[build-system]
+requires = ["setuptools>=62.4", "setuptools_scm"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["setuptools_gopy"]
+zip-safe = true
+
+[tool.setuptools.package-data]
+setuptools_gopy = ["py.typed"]

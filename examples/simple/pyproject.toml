@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools", "setuptools-gopy"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "simple"
+version = "0.0.1"
+
+[tool.setuptools]
+packages = ["python.simple"]
+
+[[tool.setuptools-gopy.ext-packages]]
+target = "github.com/LouisBrunner/setuptools-gopy/examples/simple"

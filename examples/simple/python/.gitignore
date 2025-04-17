@@ -1,0 +1,2 @@
+/simple/*
+!/simple/__init__.py

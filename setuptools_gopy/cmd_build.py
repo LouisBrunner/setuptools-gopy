@@ -87,7 +87,7 @@ class build_gopy(GopyCommand):
             content = file.read()
         lines = content.split("\n")
         prefixes = ["CFLAGS", "LDFLAGS"]
-        result = [[], []]
+        result: List[List[str]] = [[], []]
         for line in lines:
             for i, prefix in enumerate(prefixes):
                 if line.startswith(f"{prefix} = "):

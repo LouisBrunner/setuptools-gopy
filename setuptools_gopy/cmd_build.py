@@ -102,7 +102,7 @@ class build_gopy(GopyCommand):
         current_version = None
         try:
             current_version = self.__run_command("go", "env", "GOVERSION")
-        except subprocess.CalledProcessError as error:
+        except (subprocess.CalledProcessError, FileNotFoundError) as error:
             logger.warning(f"could not find system Go: {error}")
 
         logger.debug(

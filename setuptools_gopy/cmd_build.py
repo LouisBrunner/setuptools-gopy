@@ -58,7 +58,9 @@ class build_gopy(GopyCommand):
         )
         if not packages:
             raise ValueError("No packages found")
-        self.source_dir = packages[0].replace(".", os.sep)
+        self.final_dir = os.path.abspath(self.final_dir)
+        self.temp_dir = os.path.abspath(self.temp_dir)
+        self.source_dir = os.path.abspath(packages[0].replace(".", os.sep))
         self.install_dir = os.path.join(
             self.final_dir, packages[0].replace(".", os.sep)
         )
@@ -164,6 +166,16 @@ class build_gopy(GopyCommand):
     def run_for_extension(self, extension: GopyExtension) -> None:
         build_dir = os.path.join(self.build_dir, extension.target.replace("/", "-"))
 
+        logger.debug(
+            "starting execution in %s (build_dir=%s, final_dir=%s, temp_dir=%s, source_dir=%s, install_dir=%s)",
+            os.getcwd(),
+            build_dir,
+            self.final_dir,
+            self.temp_dir,
+            self.source_dir,
+            self.install_dir,
+        )
+
         logger.info("checking we have a suitable version of Go")
         env = self.__get_go_env(extension.go_version)
         try:
@@ -244,6 +256,7 @@ class build_gopy(GopyCommand):
                 "build",
                 "-mod=mod",
                 "-buildmode=c-shared",
+                *gotags,
                 "-o",
                 os.path.join(build_dir, pre_go_lib),
                 *go_files,
@@ -272,14 +285,9 @@ class build_gopy(GopyCommand):
         py_files = list(
             filter(lambda x: basename(x) not in ["build.py", "__init__.py"], py_files)
         )
-        packages = list(filter(lambda x: x not in ["test"], self.distribution.packages))
-        if not packages:
-            raise ValueError("No packages found")
-        source_dir = packages[0].replace(".", os.sep)
-        install_dir = os.path.join(self.final_dir, packages[0].replace(".", os.sep))
         for file in [go_lib, *py_files]:
             filename = basename(file)
             logger.info("installing %s (src)", filename)
-            shutil.copyfile(file, os.path.join(source_dir, filename))
+            shutil.copyfile(file, os.path.join(self.source_dir, filename))
             logger.info("installing %s (lib)", filename)
-            os.replace(file, os.path.join(install_dir, filename))
+            os.replace(file, os.path.join(self.install_dir, filename))

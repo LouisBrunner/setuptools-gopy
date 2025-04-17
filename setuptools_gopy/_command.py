@@ -16,7 +16,7 @@ SOABI = sysconfig.get_config_var("SOABI")
 class GopyCommand(Command, ABC):
     """Abstract base class for commands which interact with Gopy Extensions."""
 
-    build_dir: str = os.path.join("build", f"setuptools-gopy.{SOABI}")
+    build_dir: str = os.path.abspath(os.path.join("build", f"setuptools-gopy.{SOABI}"))
 
     def initialize_options(self) -> None:
         self.extensions: List[GopyExtension] = []

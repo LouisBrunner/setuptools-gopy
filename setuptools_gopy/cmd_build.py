@@ -161,8 +161,8 @@ class build_gopy(GopyCommand):
             raise CompileError(str(error)) from error
 
         py_files = glob.glob(os.path.join(self.build_dir, "*.py"))
-        py_files = filter(
-            lambda x: basename(x) not in ["build.py", "__init__.py"], py_files
+        py_files = list(
+            filter(lambda x: basename(x) not in ["build.py", "__init__.py"], py_files)
         )
         packages = list(filter(lambda x: x not in ["test"], self.distribution.packages))
         if not packages:

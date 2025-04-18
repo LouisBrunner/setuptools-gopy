@@ -366,11 +366,13 @@ class build_gopy(GopyCommand):
             ) from error
 
         # FIXME: for some reason gopy only rename half the files...
+        orig_name = f"{pkg_name}.py"
         py_name = f"{name}.py"
-        shutil.copyfile(
-            os.path.join(generated_dir, f"{pkg_name}.py"),
-            os.path.join(generated_dir, py_name),
-        )
+        if orig_name != py_name:
+            shutil.copyfile(
+                os.path.join(generated_dir, orig_name),
+                os.path.join(generated_dir, py_name),
+            )
 
         return {
             "files_to_copy": [

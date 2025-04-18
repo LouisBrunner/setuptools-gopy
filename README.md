@@ -8,7 +8,7 @@ You can configure `setuptools-gopy` either through `pyproject.toml` or `setup.py
 
 ```toml
 [build-system]
-requires = ["setuptools", "setuptools-gopy"]
+requires = ["setuptools", "setuptools-gopy >= 0.0.7"]
 build-backend = "setuptools.build_meta"
 
 [project]

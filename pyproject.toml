@@ -1,6 +1,6 @@
 [project]
 name = "setuptools-gopy"
-version = "0.0.6"
+version = "0.0.7"
 description = "Setuptools Gopy extension plugin"
 readme = "README.md"
 requires-python = ">=3.13"

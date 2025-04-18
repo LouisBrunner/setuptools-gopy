@@ -82,7 +82,7 @@ class build_gopy(GopyCommand):
         if env is not None:
             fenv = {**os.environ, **env}
         logger.debug(
-            f"$ running command {args}{'' if env is None else f' with env {env}'}"
+            f"$ running command {args}{'' if cwd is None else f' in {cwd}'}{'' if env is None else f' with env {env}'}",
         )
         try:
             return (
@@ -126,9 +126,10 @@ class build_gopy(GopyCommand):
         go_install_dir = os.path.join(xdg_cache, APP_NAME, "go")
         go_download_dir = os.path.join(stgp_base, "go-dl")
         install_dir = os.path.join(self.build_lib, extension.output_folder())
+        cwd = os.getcwd()
 
         logger.debug(
-            f"building extension {extension.name} (generated_dir={generated_dir}, go_install_dir={go_install_dir}, go_download_dir={go_download_dir})"
+            f"building extension {extension.name} (cwd={cwd}, generated_dir={generated_dir}, go_install_dir={go_install_dir}, go_download_dir={go_download_dir})"
         )
 
         goenv = self.__create_go_env(
@@ -136,6 +137,7 @@ class build_gopy(GopyCommand):
             temp_dir=go_download_dir,
             wanted_version=extension.go_version,
         )
+        goenv["CGO_ENABLED"] = "1"
 
         res = self.__build(goenv=goenv, generated_dir=generated_dir, ext=extension)
 
@@ -174,6 +176,7 @@ class build_gopy(GopyCommand):
                     "Go was not found on this system and no go_version was provided, aborting"
                 )
             # we have Go installed and no required version, carry on
+            logger.info(f"using installed Go {current_version}")
             return {}
 
         # we have the required version, we can stop
@@ -224,6 +227,7 @@ class build_gopy(GopyCommand):
             f"checking if Go {wanted_version} is already installed at {goroot}"
         )
         if os.path.exists(goroot):
+            logger.info(f"found Go {wanted_version} at {goroot}")
             return goenv
 
         # all failed, we need to install it
@@ -246,6 +250,8 @@ class build_gopy(GopyCommand):
         with extractor as ext:
             ext.extractall(gobase)
         os.remove(archive_path)
+
+        logger.info(f"installed Go {wanted_version} at {goroot}")
         return goenv
 
     def __build(

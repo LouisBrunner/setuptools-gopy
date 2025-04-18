@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools", "setuptools-gopy >= 0.0.6"]
+requires = ["setuptools", "setuptools-gopy >= 0.0.7"]
 build-backend = "setuptools.build_meta"
 
 [project]

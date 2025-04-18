@@ -198,6 +198,8 @@ class build_gopy(GopyCommand):
         goarch = platform.machine().lower()
         if goarch == "aarch64":
             goarch = "arm64"
+        elif goarch == "x86_64":
+            goarch = "amd64"
         goos = platform.system().lower()
         gobase = os.path.abspath(os.path.join(install_dir, wanted_version))
         goroot = os.path.join(gobase, "go")

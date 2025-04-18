@@ -29,6 +29,7 @@ class GopyError(Exception):
 
 
 IS_WINDOWS = platform.system() == "Windows"
+APP_NAME = "setuptools-gopy"
 EXT_SUFFIX = sysconfig.get_config_var("EXT_SUFFIX")
 SHLIB_SUFFIX = sysconfig.get_config_var("SHLIB_SUFFIX")
 SOABI = sysconfig.get_config_var("SOABI")
@@ -110,11 +111,19 @@ class build_gopy(GopyCommand):
         if not self.build_lib:
             raise ValueError("build_lib is required")
 
-        stgp_base = os.path.join(self.build_temp, "setuptools-gopy")
+        defcache = os.path.expanduser("~/.cache")
+        if IS_WINDOWS:
+            defcache = os.getenv("LOCALAPPDATA")
+        elif platform.system() == "Darwin":
+            defcache = os.path.expanduser("~/Library/Caches")
+
+        xdg_cache = os.getenv("XDG_CACHE_HOME", defcache)
+
+        stgp_base = os.path.join(self.build_temp, APP_NAME)
         generated_dir = os.path.join(
             stgp_base, "gen", extension.go_package.replace("/", "-")
         )
-        go_install_dir = os.path.join(stgp_base, "go")
+        go_install_dir = os.path.join(xdg_cache, APP_NAME, "go")
         go_download_dir = os.path.join(stgp_base, "go-dl")
         install_dir = os.path.join(self.build_lib, extension.output_folder())
 

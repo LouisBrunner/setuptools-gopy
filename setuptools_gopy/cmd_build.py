@@ -12,8 +12,7 @@ import sysconfig
 import tarfile
 import urllib.request
 import zipfile
-from os.path import basename
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, TypedDict, Union
 
 from setuptools.errors import (
     CompileError,
@@ -30,9 +29,20 @@ class GopyError(Exception):
 
 
 IS_WINDOWS = platform.system() == "Windows"
-IS_MACOS = platform.system() == "Darwin"
 EXT_SUFFIX = sysconfig.get_config_var("EXT_SUFFIX")
 SHLIB_SUFFIX = sysconfig.get_config_var("SHLIB_SUFFIX")
+SOABI = sysconfig.get_config_var("SOABI")
+
+type _GoEnv = Dict[str, str]
+
+
+class _GoCFlags(TypedDict):
+    cflags: List[str]
+    ldflags: List[str]
+
+
+class _BuildResult(TypedDict):
+    files_to_copy: List[str]
 
 
 class build_gopy(GopyCommand):
@@ -40,11 +50,13 @@ class build_gopy(GopyCommand):
 
     description = "build Gopy extensions (compile/link to build directory)"
 
-    final_dir: str = ""
-    temp_dir: str = ""
-    install_dir: str = ""
-    source_dir: str = ""
-    go_install_folder: str = os.path.join("build", "setuptools-gopy-go")
+    build_lib: Optional[str] = None
+    build_temp: Optional[str] = None
+
+    user_options = [
+        ("build-lib=", "b", "directory for compiled extension modules"),
+        ("build-temp=", "t", "directory for temporary files (build by-products)"),
+    ]
 
     def initialize_options(self) -> None:
         super().initialize_options()
@@ -53,20 +65,14 @@ class build_gopy(GopyCommand):
 
     def finalize_options(self) -> None:
         super().finalize_options()
-        packages = list(
-            filter(lambda x: x not in ["tests"], self.distribution.packages)
-        )
-        if not packages:
-            raise ValueError("No packages found")
-        self.final_dir = os.path.abspath(self.final_dir)
-        self.temp_dir = os.path.abspath(self.temp_dir)
-        self.source_dir = os.path.abspath(packages[0].replace(".", os.sep))
-        self.install_dir = os.path.join(
-            self.final_dir, packages[0].replace(".", os.sep)
+        self.set_undefined_options(
+            "build_ext",
+            ("build_lib", "build_lib"),
+            ("build_temp", "build_temp"),
         )
 
+    @staticmethod
     def __run_command(
-        self,
         *args: str,
         cwd: Optional[str] = None,
         env: Optional[Dict[str, str]] = None,
@@ -74,42 +80,85 @@ class build_gopy(GopyCommand):
         fenv = None
         if env is not None:
             fenv = {**os.environ, **env}
+        logger.debug(
+            f"$ running command {args}{"" if env is None  else f" with env {env}"}"
+        )
         try:
-            logger.info("$ running command: %s", " ".join(args))
             return (
                 subprocess.check_output(args, cwd=cwd, env=fenv).decode("utf-8").strip()
             )
         except subprocess.CalledProcessError as error:
-            raise GopyError(
-                f"failed (exit: {error.returncode}) with: {error.output.decode('utf-8').strip()}"
-            ) from error
+            raise GopyError(f"command {args} failed: {str(error)}") from error
 
-    def __parse_makefile(self, path: str) -> Tuple[List[str], List[str]]:
+    @staticmethod
+    def __parse_makefile(path: str) -> _GoCFlags:
         with open(path, "r") as file:
             content = file.read()
         lines = content.split("\n")
-        prefixes = ["CFLAGS", "LDFLAGS"]
-        result: List[List[str]] = [[], []]
+        result: _GoCFlags = {"cflags": [], "ldflags": []}
         for line in lines:
-            for i, prefix in enumerate(prefixes):
-                if line.startswith(f"{prefix} = "):
+            for varname in result.keys():
+                makevarname = varname.upper()
+                if line.startswith(f"{makevarname} = "):
                     _, leftover = line.split("=", 1)
-                    result[i] = shlex.split(leftover)
-        return (result[0], result[1])
+                    result[varname] = shlex.split(leftover)
+        return result
 
-    def __get_go_env(self, wanted_version: Optional[str] = None) -> Dict[str, str]:
-        # 1. try to get the system Go, if available
+    def run_for_extension(self, extension: GopyExtension) -> None:
+        if not self.build_temp:
+            raise ValueError("build_temp is required")
+        if not self.build_lib:
+            raise ValueError("build_lib is required")
+
+        stgp_base = os.path.join(self.build_temp, "setuptools-gopy")
+        generated_dir = os.path.join(
+            stgp_base, "gen", extension.go_package.replace("/", "-")
+        )
+        go_install_dir = os.path.join(stgp_base, "go")
+        go_download_dir = os.path.join(stgp_base, "go-dl")
+        install_dir = os.path.join(self.build_lib, extension.output_folder())
+
+        logger.debug(
+            f"building extension {extension.name} (generated_dir={generated_dir}, go_install_dir={go_install_dir}, go_download_dir={go_download_dir})"
+        )
+
+        goenv = self.__create_go_env(
+            install_dir=go_install_dir,
+            temp_dir=go_download_dir,
+            wanted_version=extension.go_version,
+        )
+
+        res = self.__build(goenv=goenv, generated_dir=generated_dir, ext=extension)
+
+        self.__install(
+            files_to_copy=res["files_to_copy"],
+            generated_dir=generated_dir,
+            install_dir=install_dir,
+        )
+
+    def __create_go_env(
+        self,
+        *,
+        install_dir: str,
+        temp_dir: str,
+        wanted_version: Optional[str] = None,
+    ) -> _GoEnv:
+        logger.info(
+            f"checking we have a suitable version of Go (wanted={wanted_version})"
+        )
+
+        # try to get the system Go, if available
         current_version = None
         try:
             current_version = self.__run_command("go", "env", "GOVERSION")
         except (subprocess.CalledProcessError, FileNotFoundError) as error:
-            logger.warning(f"could not find system Go: {error}")
+            logger.warning(f"could not find Go installation: {error}")
 
         logger.debug(
             f"found system Go version={current_version}, expected={wanted_version}"
         )
 
-        # 2. we have no requirements so whatever we found, that's it
+        # we have no requirements so whatever we found, that's it
         if wanted_version is None:
             if current_version is None:
                 raise CompileError(
@@ -118,16 +167,38 @@ class build_gopy(GopyCommand):
             # we have Go installed and no required version, carry on
             return {}
 
-        # 3. we have the required version, we can stop
+        # we have the required version, we can stop
         if f"go{wanted_version}" == current_version:
             return {}
 
-        # 4. let's check first if we already installed it
+        # out of luck, let's install it
+        goenv = self.__install_go_env(
+            install_dir=install_dir,
+            temp_dir=temp_dir,
+            wanted_version=wanted_version,
+        )
+
+        # final sanity check
+        try:
+            current_version = self.__run_command("go", "env", "GOVERSION", env=goenv)
+        except subprocess.CalledProcessError as error:
+            raise CompileError(f"could not find installed Go setup: {error}")
+
+        if f"go{wanted_version}" != current_version:
+            raise CompileError(
+                f"Installed Go version {wanted_version} does not match the required version {current_version}"
+            )
+
+        return goenv
+
+    def __install_go_env(
+        self, *, install_dir: str, temp_dir: str, wanted_version: str
+    ) -> _GoEnv:
+        # let's check first if we already installed it
         goarch = platform.machine().lower()
         if goarch == "aarch64":
             goarch = "arm64"
         goos = platform.system().lower()
-        install_dir = f"{self.go_install_folder}.{goos}-{goarch}"
         gobase = os.path.abspath(os.path.join(install_dir, wanted_version))
         goroot = os.path.join(gobase, "go")
         gopath = os.path.join(gobase, "path")
@@ -144,13 +215,13 @@ class build_gopy(GopyCommand):
         if os.path.exists(goroot):
             return goenv
 
-        # 5. all failed, we need to install it
-        os.makedirs(self.temp_dir, exist_ok=True)
-
+        # all failed, we need to install it
+        os.makedirs(temp_dir, exist_ok=True)
+        os.makedirs(gobase, exist_ok=True)
         archive_ext = ".zip" if IS_WINDOWS else ".tar.gz"
         archive_name = f"go{wanted_version}.{goos}-{goarch}{archive_ext}"
         archive_url = f"https://go.dev/dl/{archive_name}"
-        archive_path = os.path.join(self.temp_dir, archive_name)
+        archive_path = os.path.join(temp_dir, archive_name)
         logger.debug(
             f"downloading {archive_name} from {archive_url} into {archive_path}"
         )
@@ -163,36 +234,23 @@ class build_gopy(GopyCommand):
             extractor = tarfile.open(archive_path, "r:gz")
         with extractor as ext:
             ext.extractall(gobase)
+        os.remove(archive_path)
         return goenv
 
-    def run_for_extension(self, extension: GopyExtension) -> None:
-        build_dir = os.path.join(self.build_dir, extension.target.replace("/", "-"))
+    def __build(
+        self, *, goenv: _GoEnv, generated_dir: str, ext: GopyExtension
+    ) -> _BuildResult:
+        os.makedirs(generated_dir, exist_ok=True)
 
-        logger.debug(
-            "starting execution in %s (build_dir=%s, final_dir=%s, temp_dir=%s, source_dir=%s, install_dir=%s)",
-            os.getcwd(),
-            build_dir,
-            self.final_dir,
-            self.temp_dir,
-            self.source_dir,
-            self.install_dir,
-        )
+        name = ext.package_name()
 
-        logger.info("checking we have a suitable version of Go")
-        env = self.__get_go_env(extension.go_version)
-        try:
-            current_version = self.__run_command("go", "env", "GOVERSION", env=env)
-            logger.info(f"using Go version {current_version}")
-        except subprocess.CalledProcessError as error:
-            raise CompileError(f"could not find system Go: {error}")
-
-        logger.info("generating gopy code in %s", build_dir)
+        logger.info("generating gopy code for %s in %s", ext.go_package, generated_dir)
         extra_gen_args = []
         gotags = []
-        if extension.build_tags:
-            extra_gen_args.append(f"-build-tags={extension.build_tags}")
-            gotags.extend(["-tags", extension.build_tags])
-        if extension.rename_to_pep:
+        if ext.build_tags:
+            extra_gen_args.append(f"-build-tags={ext.build_tags}")
+            gotags.extend(["-tags", ext.build_tags])
+        if ext.rename_to_pep:
             extra_gen_args.append("-rename=true")
         try:
             self.__run_command(
@@ -200,32 +258,33 @@ class build_gopy(GopyCommand):
                 "tool",
                 "gopy",
                 "gen",
-                f"-output={build_dir}",
+                f"-name={name}",
+                f"-output={generated_dir}",
                 f"-vm={sys.executable}",
                 *extra_gen_args,
-                extension.target,
-                env=env,
+                ext.go_package,
+                env=goenv,
             )
         except GopyError as error:
             raise CompileError(
                 f"gopy failed, make sure it is installed as a tool in your go.mod: {error}"
             ) from error
 
-        logger.info("generating pybindgen C code in %s", build_dir)
+        logger.info("generating pybindgen C code in %s", generated_dir)
         try:
             self.__run_command(
                 sys.executable,
                 "-m",
                 "build",
-                cwd=build_dir,
+                cwd=generated_dir,
             )
         except GopyError as error:
-            raise CompileError(f"build failed: {error}") from error
+            raise CompileError(f"pybindgen build failed: {error}") from error
 
-        go_files = glob.glob(os.path.join(build_dir, "*.go"))
+        go_files = glob.glob(os.path.join(generated_dir, "*.go"))
         for file in go_files:
-            filename_in_build = os.path.relpath(file, build_dir)
-            logger.info("auto importing Go packages in %s", filename_in_build)
+            filename = os.path.relpath(file, generated_dir)
+            logger.info("auto importing Go packages in %s", filename)
             try:
                 self.__run_command(
                     "go",
@@ -233,39 +292,16 @@ class build_gopy(GopyCommand):
                     "goimports",
                     "-w",
                     file,
-                    env=env,
+                    env=goenv,
                 )
             except GopyError as error:
                 raise CompileError(
-                    f"goimports failed for {filename_in_build}, make sure it is installed as a tool in your go.mod: {error}"
+                    f"goimports failed for {filename}, make sure it is installed as a tool in your go.mod: {error}"
                 ) from error
 
-        name = self.distribution.get_name()
-        pre_go_lib = f"{name}_go{SHLIB_SUFFIX}"
-        go_lib = f"_{name}{EXT_SUFFIX}"
-        cflags, ldflags = self.__parse_makefile(os.path.join(build_dir, "Makefile"))
-        build_env = {
-            **env,
-            "CGO_CFLAGS": " ".join(
-                [os.environ.get("CGO_CFLAGS", ""), "-fPIC", "-Ofast", *cflags]
-            ),
-            "CGO_LDFLAGS": " ".join([os.environ.get("CGO_LDFLAGS", ""), *ldflags]),
-        }
-        logger.info("building Go dynamic library in %s for %s", build_dir, name)
-        try:  # this is needed to generate some intermediate files
-            self.__run_command(
-                "go",
-                "build",
-                "-mod=mod",
-                "-buildmode=c-shared",
-                *gotags,
-                "-o",
-                os.path.join(build_dir, pre_go_lib),
-                *go_files,
-                env=env,
-            )
-        except GopyError as error:
-            raise CompileError(str(error)) from error
+        prep_ext_name = f"{name}_go{SHLIB_SUFFIX}"
+        out_prep_ext = os.path.join(generated_dir, prep_ext_name)
+        logger.debug("generating intermediate CGo files in %s", generated_dir)
         try:
             self.__run_command(
                 "go",
@@ -274,22 +310,86 @@ class build_gopy(GopyCommand):
                 "-buildmode=c-shared",
                 *gotags,
                 "-o",
-                go_lib,
+                out_prep_ext,
+                *go_files,
+                env=goenv,
+            )
+        except GopyError as error:
+            raise CompileError(f"preparatory go build failed: {error}")
+        os.remove(out_prep_ext)
+
+        logger.info("building Go dynamic library for %s in %s", name, generated_dir)
+        ext_name = f"_{name}{EXT_SUFFIX}"
+        makeflags = self.__parse_makefile(os.path.join(generated_dir, "Makefile"))
+        build_env = {
+            **goenv,
+            "CGO_CFLAGS": " ".join(
+                [
+                    os.environ.get("CGO_CFLAGS", ""),
+                    "-fPIC",
+                    "-Ofast",
+                    *makeflags["cflags"],
+                ],
+            ),
+            "CGO_LDFLAGS": " ".join(
+                [os.environ.get("CGO_LDFLAGS", ""), *makeflags["ldflags"]]
+            ),
+        }
+        try:
+            self.__run_command(
+                "go",
+                "build",
+                "-mod=mod",
+                "-buildmode=c-shared",
+                *gotags,
+                "-o",
+                ext_name,
                 ".",
-                cwd=build_dir,
+                cwd=generated_dir,
                 env=build_env,
             )
         except GopyError as error:
-            raise CompileError(str(error)) from error
-        go_lib = os.path.join(build_dir, go_lib)
+            raise CompileError(f"go build failed: {error}")
 
-        py_files = glob.glob(os.path.join(build_dir, "*.py"))
-        py_files = list(
-            filter(lambda x: basename(x) not in ["build.py", "__init__.py"], py_files)
+        try:
+            pkg_name = self.__run_command(
+                "go",
+                "list",
+                "-f",
+                "{{.Name}}",
+                ext.go_package,
+                env=goenv,
+            ).strip()
+        except GopyError as error:
+            raise CompileError(
+                f"go list failed for {ext.go_package}: {error}"
+            ) from error
+
+        # FIXME: for some reason gopy only rename half the files...
+        py_name = f"{name}.py"
+        shutil.copyfile(
+            os.path.join(generated_dir, f"{pkg_name}.py"),
+            os.path.join(generated_dir, py_name),
         )
-        for file in [go_lib, *py_files]:
-            filename = basename(file)
-            logger.info("installing %s (src)", filename)
-            shutil.copyfile(file, os.path.join(self.source_dir, filename))
-            logger.info("installing %s (lib)", filename)
-            os.replace(file, os.path.join(self.install_dir, filename))
+
+        return {
+            "files_to_copy": [
+                py_name,
+                ext_name,
+                "go.py",
+            ]
+        }
+
+    def __install(
+        self, *, generated_dir: str, install_dir: str, files_to_copy: List[str]
+    ):
+        os.makedirs(install_dir, exist_ok=True)
+        logger.debug("installing in %s", install_dir)
+
+        for file in files_to_copy:
+            src_path = os.path.join(generated_dir, file)
+            dst_path = os.path.join(install_dir, file)
+            logger.info(
+                "installing file %s, copy from %s to %s", file, src_path, dst_path
+            )
+            shutil.copyfile(src_path, dst_path)

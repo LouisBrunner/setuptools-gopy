@@ -19,7 +19,12 @@ version = "0.0.1"
 find = { where = ["python"] }
 
 [[tool.setuptools-gopy.ext-packages]]
-target = "github.com/LouisBrunner/setuptools-gopy/examples/simple"
+# the name of the package to create (e.g. this will create hello.py, _hello.DYLIB_SUFFIX and go.py in the simple package)
+name = "simple.hello"
+# name of the package to build (as would be accessible through the go cli)
+go_package = "github.com/LouisBrunner/setuptools-gopy/examples/simple"
+# optional: select which version of Go to install (otherwise expects the system to have it installed)
+go_version = "1.24.1"
 ```
 
 ```python
@@ -34,7 +39,10 @@ setup(
     package_dir={"": "python"},
     gopy_extensions=[
         GopyExtension(
+            # same as above
+            "simple.hello",
             "github.com/LouisBrunner/setuptools-gopy/examples/simple",
+            go_version="1.24.1"
         )
     ],
 )
@@ -45,7 +53,7 @@ In either case, you need to provide a `target`: this is the name of the Go packa
 Once built, you can import Go symbols like so:
 
 ```python
-from .simple import Hello
+from .hello import Hello
 ```
 
 Note that the name of the file will match the Go `package` that you imported.

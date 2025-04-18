@@ -3,5 +3,5 @@
 build
 *.egg-info
 __pycache__
-/dist
+dist
 install.log

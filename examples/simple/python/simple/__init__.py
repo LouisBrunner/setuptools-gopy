@@ -1,3 +1,3 @@
-from .simple import HelloWorld
+from .hello import HelloWorld
 
 __all__ = ["HelloWorld"]

@@ -19,11 +19,10 @@ def add_gopy_extension(dist: Distribution) -> None:
     class build_ext_gopy_extension(build_ext_base_class):  # type: ignore[misc,valid-type]
         def run(self) -> None:
             super().run()
-            if not self.dry_run:
-                cmd = cast(build_gopy, self.get_finalized_command("build_gopy"))
-                cmd.final_dir = self.build_lib
-                cmd.temp_dir = self.build_temp
-                self.run_command("build_gopy")
+            cmd = cast(build_gopy, self.get_finalized_command("build_gopy"))
+            cmd.build_lib = self.build_lib
+            cmd.build_temp = self.build_temp
+            self.run_command("build_gopy")
 
     dist.cmdclass["build_ext"] = build_ext_gopy_extension
 

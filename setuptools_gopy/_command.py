@@ -1,6 +1,4 @@
 import logging
-import os
-import sysconfig
 from abc import ABC, abstractmethod
 from typing import List, Optional
 
@@ -10,13 +8,9 @@ from .extension import GopyExtension
 
 logger = logging.getLogger(__name__)
 
-SOABI = sysconfig.get_config_var("SOABI")
-
 
 class GopyCommand(Command, ABC):
     """Abstract base class for commands which interact with Gopy Extensions."""
-
-    build_dir: str = os.path.abspath(os.path.join("build", f"setuptools-gopy.{SOABI}"))
 
     def initialize_options(self) -> None:
         self.extensions: List[GopyExtension] = []
@@ -49,6 +43,9 @@ class GopyCommand(Command, ABC):
     def run(self) -> None:
         if not self.extensions:
             logger.info("%s: no gopy_extensions defined", self.get_command_name())
+            return
+
+        if self.dry_run:
             return
 
         for ext in self.extensions:

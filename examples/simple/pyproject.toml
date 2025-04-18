@@ -6,10 +6,13 @@ build-backend = "setuptools.build_meta"
 name = "simple"
 version = "0.0.1"
 
-[tool.setuptools]
-packages = ["python.simple"]
+[tool.setuptools.packages]
+find = { where = ["python"] }
 
 [[tool.setuptools-gopy.ext-packages]]
-target = "github.com/LouisBrunner/setuptools-gopy/examples/simple"
+# the name of the package to create (e.g. this will create hello.py, _hello.DYLIB_SUFFIX and go.py in the simple package)
+name = "simple.hello"
+# name of the package to build (as would be accessible through the go cli)
+go_package = "github.com/LouisBrunner/setuptools-gopy/examples/simple"
 # optional: select which version of Go to install (otherwise expects the system to have it installed)
 go_version = "1.24.1"

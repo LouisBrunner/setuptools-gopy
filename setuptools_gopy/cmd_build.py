@@ -81,7 +81,7 @@ class build_gopy(GopyCommand):
         if env is not None:
             fenv = {**os.environ, **env}
         logger.debug(
-            f"$ running command {args}{"" if env is None  else f" with env {env}"}"
+            f"$ running command {args}{'' if env is None else f' with env {env}'}"
         )
         try:
             return (
@@ -101,7 +101,7 @@ class build_gopy(GopyCommand):
                 makevarname = varname.upper()
                 if line.startswith(f"{makevarname} = "):
                     _, leftover = line.split("=", 1)
-                    result[varname] = shlex.split(leftover)
+                    result[varname] = shlex.split(leftover)  # type: ignore[literal-required]
         return result
 
     def run_for_extension(self, extension: GopyExtension) -> None:
@@ -384,7 +384,7 @@ class build_gopy(GopyCommand):
 
     def __install(
         self, *, generated_dir: str, install_dir: str, files_to_copy: List[str]
-    ):
+    ) -> None:
         os.makedirs(install_dir, exist_ok=True)
         logger.debug("installing in %s", install_dir)
 

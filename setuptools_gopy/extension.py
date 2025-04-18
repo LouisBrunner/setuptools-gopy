@@ -31,8 +31,8 @@ class GopyExtension:
         self._folder = folder.replace(".", "/")
         self._file_name = file
 
-    def package_name(self):
+    def package_name(self) -> str:
         return self._file_name
 
-    def output_folder(self):
+    def output_folder(self) -> str:
         return self._folder

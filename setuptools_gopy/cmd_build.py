@@ -113,7 +113,7 @@ class build_gopy(GopyCommand):
 
         defcache = os.path.expanduser("~/.cache")
         if IS_WINDOWS:
-            defcache = os.getenv("LOCALAPPDATA")
+            defcache = os.getenv("LOCALAPPDATA", defcache)
         elif platform.system() == "Darwin":
             defcache = os.path.expanduser("~/Library/Caches")
 

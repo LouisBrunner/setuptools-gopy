@@ -55,7 +55,11 @@ class build_gopy(GopyCommand):
     user_options = [
         ("build-lib=", "b", "directory for compiled extension modules"),
         ("build-temp=", "t", "directory for temporary files (build by-products)"),
-        ("plat-name=", "p", "Docker image name to use for cross-compilation"),
+        (
+            "plat-name=",
+            "p",
+            "platforms to cross-compile (can be multiple separated by `,`)",
+        ),
     ]
 
     go_manager: GoManager = GoManager()
@@ -159,11 +163,6 @@ class build_gopy(GopyCommand):
             gotags.extend(["-tags", ext.build_tags])
         if ext.rename_to_pep:
             extra_gen_args.append("-rename=true")
-        res = run(
-            "ls",
-            "-laR",
-            "/src",
-        )
         run(
             "go",
             "tool",

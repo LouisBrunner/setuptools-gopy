@@ -35,7 +35,7 @@ def add_gopy_extension(dist: Distribution) -> None:
             python, abi, plat = super().get_tag()
             override_plat = Flags.override_plat_name()
             if override_plat:
-                plat = override_plat.replace("-", "_")
+                plat = override_plat.replace("-", "_").replace(",", ".")
             return python, abi, plat
 
     dist.cmdclass["bdist_wheel"] = bdist_wheel_gopy_extension

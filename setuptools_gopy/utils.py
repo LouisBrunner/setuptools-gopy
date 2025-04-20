@@ -61,10 +61,11 @@ def run_command(
     if env is not None:
         fenv = {**os.environ, **env}
     logger.debug(
-        f"$ running command {args}{'' if cwd is None else f' in {cwd}'}{'' if env is None else f' with env {env}'}",
+        f"$ running command {args} in {os.getcwd() if cwd is None else cwd}{'' if env is None else f' with env {env}'}",
     )
     try:
         try:
+            subprocess.check_output(["ls", "-laR"], cwd=cwd, env=fenv)
             return (
                 subprocess.check_output(args, cwd=cwd, env=fenv).decode("utf-8").strip()
             )

@@ -43,6 +43,8 @@ class ScopedContainer(RunningContainer):
         return self.__run(
             "docker",
             "exec",
+            "--user",
+            f"{os.getuid()}:{os.getgid()}",
             *fcwd,
             *flatten(fenv),
             self.__id,
@@ -105,8 +107,6 @@ class DockerManager:
             "docker",
             "create",
             "--rm",
-            "--user",
-            f"{os.getuid()}:{os.getgid()}",
             "--platform",
             f"linux/{platform}",
             *docker_cwd,

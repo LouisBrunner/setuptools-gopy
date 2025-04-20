@@ -159,6 +159,12 @@ class build_gopy(GopyCommand):
             gotags.extend(["-tags", ext.build_tags])
         if ext.rename_to_pep:
             extra_gen_args.append("-rename=true")
+        res = run(
+            "ls",
+            "-laR",
+            "/src",
+        )
+        print(res)
         run(
             "go",
             "tool",

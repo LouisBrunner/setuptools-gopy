@@ -46,8 +46,6 @@ jobs:
         with:
           python-version: "3.x"
 
-      - run: pip install virtualenv
-
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
 

@@ -1,5 +1,5 @@
 test:
-	virtualenv venv
+	python3 -m venv venv
 	. venv/bin/activate && pip install ../.. build
 	. venv/bin/activate && SETUPTOOLS_GOPY_PLAT_NAME=linux-aarch64 pip install --no-build-isolation -v --log install.log .
 	. venv/bin/activate && SETUPTOOLS_GOPY_PLAT_NAME=linux-x86_64 python -m build --no-isolation --verbose

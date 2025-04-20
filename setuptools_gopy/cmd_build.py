@@ -346,7 +346,7 @@ class build_gopy(GopyCommand):
             mounted_source_dir, "build", "setuptools-gopy-docker"
         )
         mounts = [
-            (os.getcwd(), mounted_source_dir, "r"),
+            (os.getcwd(), mounted_source_dir, "ro"),
             (generated_dir, mounted_generated_dir, "rw"),
         ]
 

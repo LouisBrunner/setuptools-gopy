@@ -106,7 +106,7 @@ class build_gopy(GopyCommand):
         override_plat_name = self.flags.override_plat_name()
         if override_plat_name:
             plat_name = override_plat_name
-        if plat_name is None:
+        if plat_name is None or plat_name == sysconfig.get_platform():
             logger.debug(
                 f"building extension {extension.name} (cwd={cwd}, generated_dir={generated_dir}, go_install_dir={go_install_dir}, go_download_dir={go_download_dir})"
             )
@@ -164,7 +164,6 @@ class build_gopy(GopyCommand):
             "-laR",
             "/src",
         )
-        print(res)
         run(
             "go",
             "tool",

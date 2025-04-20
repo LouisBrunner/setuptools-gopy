@@ -49,3 +49,4 @@ jobs:
       - run: pip install virtualenv
 
       - run: make -C examples/simple
+      - run: make -C examples/manylinux

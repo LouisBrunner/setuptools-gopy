@@ -1,0 +1,2 @@
+include go.*
+recursive-include . *.go

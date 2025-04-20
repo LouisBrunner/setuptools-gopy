@@ -1,4 +1,9 @@
-from typing import Optional
+from typing import List, Optional, TypedDict
+
+
+class _ManyLinuxConfig(TypedDict):
+    image: str
+    archs: List[str]
 
 
 class GopyExtension:
@@ -20,12 +25,14 @@ class GopyExtension:
         build_tags: Optional[str] = None,
         rename_to_pep: Optional[bool] = None,
         go_version: Optional[str] = None,
+        manylinux: Optional[_ManyLinuxConfig] = None,
     ):
         self.name = name
         self.go_package = go_package
         self.build_tags = build_tags
         self.rename_to_pep = rename_to_pep
         self.go_version = go_version
+        self.manylinux = manylinux
 
         folder, file = self.name.rsplit(".", 1)
         self._folder = folder.replace(".", "/")

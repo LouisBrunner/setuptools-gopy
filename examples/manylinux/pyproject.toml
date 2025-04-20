@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools", "setuptools-gopy >= 0.0.7"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "simple"
+version = "0.0.1"
+
+[tool.setuptools.packages]
+find = { where = ["python"] }
+
+[[tool.setuptools-gopy.ext-packages]]
+# the name of the package to create (e.g. this will create hello.py, _hello.DYLIB_SUFFIX and go.py in the simple package)
+name = "simple.hello"
+# name of the package to build (as would be accessible through the go cli)
+go_package = "github.com/LouisBrunner/setuptools-gopy/examples/simple"
+# optional: select which version of Go to install (otherwise expects the system to have it installed)
+go_version = "1.24.1"
+# optional: use manylinux to build your distribution, this will install the Go version mentioned above inside the container
+manylinux = { image = "manylinux2014", archs = ["x86_64", "aarch64"] }

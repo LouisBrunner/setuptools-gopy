@@ -105,6 +105,8 @@ class DockerManager:
             "docker",
             "create",
             "--rm",
+            "--user",
+            f"{os.getuid()}:{os.getgid()}",
             "--platform",
             f"linux/{platform}",
             *docker_cwd,

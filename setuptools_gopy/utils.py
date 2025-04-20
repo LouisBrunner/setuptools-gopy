@@ -65,12 +65,6 @@ def run_command(
     )
     try:
         try:
-            out = (
-                subprocess.check_output(["ls", "-laR"], cwd=cwd, env=fenv)
-                .decode("utf-8")
-                .strip()
-            )
-            logger.debug(f"$ ls -laR output:\n{out}")
             return (
                 subprocess.check_output(args, cwd=cwd, env=fenv).decode("utf-8").strip()
             )

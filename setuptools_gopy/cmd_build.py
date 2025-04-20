@@ -8,10 +8,12 @@ import shutil
 import sys
 import sysconfig
 from typing import (
+    Any,
     Dict,
     List,
     Optional,
     TypedDict,
+    cast,
 )
 
 from setuptools.errors import (
@@ -301,7 +303,9 @@ class build_gopy(GopyCommand):
     ) -> _BuildResult:
         os.makedirs(generated_dir, exist_ok=True)
 
-        def local_runner(*args, env: Optional[Dict[str, str]] = None, **kwargs):
+        def local_runner(
+            *args: str, env: Optional[Dict[str, str]] = None, **kwargs: Any
+        ) -> str:
             fenv = goenv
             if env is not None:
                 fenv = {**env, **goenv}
@@ -327,11 +331,12 @@ class build_gopy(GopyCommand):
         if ext.go_version is not None:
             go_version = ext.go_version
         else:
-            go_version = self.go_manager.get_system_version()
-            if go_version is None:
+            system_version = self.go_manager.get_system_version()
+            if system_version is None:
                 raise CompileError(
                     "Go version not specified and none found, please provide one through the configuration"
                 )
+            go_version = system_version
 
         if not ext.manylinux["archs"]:
             raise ValueError("No architectures specified for manylinux build")
@@ -341,8 +346,8 @@ class build_gopy(GopyCommand):
             mounted_source_dir, "build", "setuptools-gopy-docker"
         )
         mounts = [
-            (os.getcwd(), mounted_source_dir),
-            (generated_dir, mounted_generated_dir),
+            (os.getcwd(), mounted_source_dir, "r"),
+            (generated_dir, mounted_generated_dir, "rw"),
         ]
 
         all_files = []
@@ -371,10 +376,10 @@ class build_gopy(GopyCommand):
                 appendpath=path,
             ) as container:
                 docker_python = (
-                    f"python{".".join([str(x) for x in sys.version_info[:2]])}"
+                    f"python{'.'.join([str(x) for x in sys.version_info[:2]])}"
                 )
 
-                def inject_runner(cmd: str, *args, **kwargs):
+                def inject_runner(cmd: str, *args: str, **kwargs: Any) -> str:
                     if cmd == sys.executable:
                         return run_command(cmd, *args, **kwargs)
                     return container.run(cmd, *args, **kwargs)
@@ -383,7 +388,7 @@ class build_gopy(GopyCommand):
                     real_gen_dir=generated_dir,
                     generated_dir=mounted_generated_dir,
                     ext=ext,
-                    run=inject_runner,
+                    run=cast(CommandRunner, inject_runner),
                     python_path=docker_python,
                 )
                 ext_suffix = container.run(

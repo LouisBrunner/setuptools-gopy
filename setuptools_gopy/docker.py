@@ -1,7 +1,7 @@
 import logging
 import os
 import shlex
-from abc import ABC
+from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from typing import Dict, Generator, List, Optional, Tuple
 
@@ -10,8 +10,11 @@ from .utils import CommandRunner, GopyError, flatten, run_command
 
 logger = logging.getLogger(__name__)
 
+type DockerMount = Tuple[str, str, str]
+
 
 class RunningContainer(ABC):
+    @abstractmethod
     def run(
         self,
         *args: str,
@@ -64,7 +67,7 @@ class DockerManager:
     @classmethod
     def install_go_env(
         cls, *, arch: str, temp_dir: str, install_dir: str, version: str
-    ) -> Tuple[GoEnv, str, Tuple[str, str]]:
+    ) -> Tuple[GoEnv, str, DockerMount]:
         goenv = cls.go_manager.install_go_env(
             goos="linux",
             goarch=arch,
@@ -79,7 +82,7 @@ class DockerManager:
         return (
             {k: v for k, v in goenv.items() if k != "PATH"},
             f"{goenv['GOROOT']}/bin",
-            (gobase, mount),
+            (gobase, mount, "rw"),
         )
 
     @contextmanager
@@ -89,12 +92,14 @@ class DockerManager:
         image: str,
         platform: str,
         cwd: Optional[str] = None,
-        mounts: List[Tuple[str, str]] = [],
+        mounts: List[DockerMount] = [],
         env: Dict[str, str] = {},
         appendpath: Optional[str] = None,
     ) -> Generator[RunningContainer, None, None]:
         docker_envs = [["-e", f"{k}={v}"] for k, v in env.items()]
-        docker_mounts = [["-v", f"{os.path.abspath(src)}:{dst}"] for src, dst in mounts]
+        docker_mounts = [
+            ["-v", f"{os.path.abspath(src)}:{dst}:{tp}"] for src, dst, tp in mounts
+        ]
         docker_cwd = []
         if cwd is not None:
             docker_cwd = ["-w", cwd]

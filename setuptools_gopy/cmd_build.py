@@ -24,10 +24,7 @@ from ._command import GopyCommand
 from .docker import DockerManager
 from .extension import GopyExtension
 from .go import GoEnv, GoManager, arch_to_go
-from .utils import IS_WINDOWS, CommandRunner, parse_makefile, run_command
-
-logger = logging.getLogger(__name__)
-
+from .utils import IS_WINDOWS, CommandRunner, logger, parse_makefile, run_command
 
 APP_NAME = "setuptools-gopy"
 EXT_SUFFIX = sysconfig.get_config_var("EXT_SUFFIX")

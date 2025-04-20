@@ -1,4 +1,3 @@
-import logging
 import os
 import platform
 import tarfile
@@ -8,11 +7,9 @@ from typing import Dict, Optional, Union
 
 from setuptools.errors import CompileError
 
-from .utils import IS_WINDOWS, GopyError, run_command
+from .utils import IS_WINDOWS, GopyError, logger, run_command
 
 type GoEnv = Dict[str, str]
-
-logger = logging.getLogger(__name__)
 
 
 def arch_to_go(arch: str) -> str:

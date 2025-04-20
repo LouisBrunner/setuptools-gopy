@@ -9,7 +9,7 @@ from setuptools.errors import CompileError
 
 T = TypeVar("T")
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("setuptools-gopy")
 
 IS_WINDOWS = platform.system() == "Windows"
 
@@ -65,7 +65,12 @@ def run_command(
     )
     try:
         try:
-            subprocess.check_output(["ls", "-laR"], cwd=cwd, env=fenv)
+            out = (
+                subprocess.check_output(["ls", "-laR"], cwd=cwd, env=fenv)
+                .decode("utf-8")
+                .strip()
+            )
+            logger.debug(f"$ ls -laR output:\n{out}")
             return (
                 subprocess.check_output(args, cwd=cwd, env=fenv).decode("utf-8").strip()
             )

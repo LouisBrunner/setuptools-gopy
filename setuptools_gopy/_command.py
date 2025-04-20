@@ -1,12 +1,10 @@
-import logging
 from abc import ABC, abstractmethod
 from typing import List, Optional
 
 from setuptools import Command
 
 from .extension import GopyExtension
-
-logger = logging.getLogger(__name__)
+from .utils import logger
 
 
 class GopyCommand(Command, ABC):

@@ -1,4 +1,3 @@
-import logging
 import os
 import shlex
 from abc import ABC, abstractmethod
@@ -6,9 +5,7 @@ from contextlib import contextmanager
 from typing import Dict, Generator, List, Optional, Tuple
 
 from .go import GoEnv, GoManager
-from .utils import CommandRunner, GopyError, flatten, run_command
-
-logger = logging.getLogger(__name__)
+from .utils import CommandRunner, GopyError, flatten, logger, run_command
 
 type DockerMount = Tuple[str, str, str]
 

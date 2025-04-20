@@ -1,4 +1,3 @@
-import logging
 from typing import List, Literal, Type, cast
 
 from setuptools.command.build_ext import build_ext
@@ -7,8 +6,6 @@ from tomllib import load as toml_load
 
 from .cmd_build import build_gopy
 from .extension import GopyExtension
-
-logger = logging.getLogger(__name__)
 
 
 def add_gopy_extension(dist: Distribution) -> None:

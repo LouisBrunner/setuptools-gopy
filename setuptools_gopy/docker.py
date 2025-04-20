@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from typing import Dict, Generator, List, Optional, Tuple
 
+from .flags import Flags
 from .go import GoEnv, GoManager
 from .utils import CommandRunner, GopyError, flatten, logger, run_command
 
@@ -62,6 +63,7 @@ class ScopedContainer(RunningContainer):
 
 class DockerManager:
     go_manager: GoManager = GoManager()
+    flags: Flags = Flags()
 
     @classmethod
     def install_go_env(
@@ -84,9 +86,28 @@ class DockerManager:
             (gobase, mount, "rw"),
         )
 
+    @classmethod
+    def image_for_platform(cls, platform: str) -> str:
+        user_image = cls.flags.cross_compile_image()
+        if user_image is not None:
+            return user_image
+        if not platform.startswith("linux"):
+            raise ValueError(f"Unsupported platform for cross-compilation: {platform}")
+        if platform.startswith("linux-"):
+            platform = platform.replace("-", "_", 1)
+        platform = platform.replace("linux", "manylinux2014")
+        return f"quay.io/pypa/{platform}"
+
+    @classmethod
+    def get_arch_for_image(cls, image: str) -> str:
+        run_command("docker", "pull", image)
+        res = run_command("docker", "inspect", "--format", "{{.Architecture}}", image)
+        return res.strip()
+
+    @classmethod
     @contextmanager
     def run_container(
-        self,
+        cls,
         *,
         image: str,
         platform: str,
@@ -128,7 +149,7 @@ class DockerManager:
 
             yield ScopedContainer(runner=run_command, id=id, appendpath=appendpath)
         finally:
-            if os.getenv("SETUPTOOLS_GOPY_LEAVE_DOCKER", "") != "y":
+            if cls.flags.keep_docker_image():
                 try:
                     run_command("docker", "stop", "-t", "5", id)
                 except GopyError as e:

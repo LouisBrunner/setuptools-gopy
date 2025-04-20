@@ -23,7 +23,8 @@ from setuptools.errors import (
 from ._command import GopyCommand
 from .docker import DockerManager
 from .extension import GopyExtension
-from .go import GoEnv, GoManager, arch_to_go
+from .flags import Flags
+from .go import GoEnv, GoManager
 from .utils import IS_WINDOWS, CommandRunner, logger, parse_makefile, run_command
 
 APP_NAME = "setuptools-gopy"
@@ -49,14 +50,17 @@ class build_gopy(GopyCommand):
 
     build_lib: Optional[str] = None
     build_temp: Optional[str] = None
+    plat_name: Optional[str] = None
 
     user_options = [
         ("build-lib=", "b", "directory for compiled extension modules"),
         ("build-temp=", "t", "directory for temporary files (build by-products)"),
+        ("plat-name=", "p", "Docker image name to use for cross-compilation"),
     ]
 
     go_manager: GoManager = GoManager()
     docker_manager: DockerManager = DockerManager()
+    flags: Flags = Flags()
 
     def initialize_options(self) -> None:
         super().initialize_options()
@@ -69,6 +73,10 @@ class build_gopy(GopyCommand):
             "build_ext",
             ("build_lib", "build_lib"),
             ("build_temp", "build_temp"),
+        )
+        self.set_undefined_options(
+            "build",
+            ("plat_name", "plat_name"),
         )
 
     def run_for_extension(self, extension: GopyExtension) -> None:
@@ -94,7 +102,11 @@ class build_gopy(GopyCommand):
         install_dir = os.path.join(self.build_lib, extension.output_folder())
         cwd = os.getcwd()
 
-        if extension.manylinux is None:
+        plat_name = self.plat_name
+        override_plat_name = self.flags.override_plat_name()
+        if override_plat_name:
+            plat_name = override_plat_name
+        if plat_name is None:
             logger.debug(
                 f"building extension {extension.name} (cwd={cwd}, generated_dir={generated_dir}, go_install_dir={go_install_dir}, go_download_dir={go_download_dir})"
             )
@@ -110,9 +122,10 @@ class build_gopy(GopyCommand):
             )
         else:
             logger.debug(
-                f"building extension {extension.name} (cwd={cwd}, generated_dir={generated_dir})"
+                f"building extension {extension.name} for {plat_name} (cwd={cwd}, generated_dir={generated_dir})"
             )
-            res = self.__manylinux_build(
+            res = self.__docker_build(
+                platform=plat_name,
                 generated_dir=generated_dir,
                 ext=extension,
                 go_install_dir=go_install_dir,
@@ -316,15 +329,14 @@ class build_gopy(GopyCommand):
 
         return self.__build_compile(gen=generated, ext=ext, run=local_runner)
 
-    def __manylinux_build(
+    def __docker_build(
         self,
+        platform: str,
         generated_dir: str,
         ext: GopyExtension,
         go_install_dir: str,
         go_download_dir: str,
     ) -> _BuildResult:
-        assert ext.manylinux is not None
-
         if ext.go_version is not None:
             go_version = ext.go_version
         else:
@@ -334,9 +346,6 @@ class build_gopy(GopyCommand):
                     "Go version not specified and none found, please provide one through the configuration"
                 )
             go_version = system_version
-
-        if not ext.manylinux["archs"]:
-            raise ValueError("No architectures specified for manylinux build")
 
         mounted_source_dir = "/src"
         mounted_generated_dir = os.path.join(
@@ -349,23 +358,20 @@ class build_gopy(GopyCommand):
 
         all_files = []
 
-        for oarch in ext.manylinux["archs"]:
-            arch = arch_to_go(oarch)
+        platforms = platform.split(",")
+        for platform in platforms:
+            image = self.docker_manager.image_for_platform(platform)
+            arch = self.docker_manager.get_arch_for_image(image)
             goenv, path, gomount = self.docker_manager.install_go_env(
                 arch=arch,
                 install_dir=go_install_dir,
                 temp_dir=go_download_dir,
                 version=go_version,
             )
-            logger.info(f"compiling for {arch}")
-
-            image = ext.manylinux["image"]
-            docker_image = f"quay.io/pypa/{image}_{oarch}"
-            if "/" in image:
-                docker_image = image
+            logger.info(f"compiling for {platform} (arch {arch} on {image})")
 
             with self.docker_manager.run_container(
-                image=docker_image,
+                image=image,
                 platform=arch,
                 mounts=[*mounts, gomount],
                 cwd=mounted_source_dir,

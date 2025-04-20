@@ -1,11 +1,13 @@
-from typing import List, Literal, Type, cast
+from typing import List, Literal, Tuple, Type, cast
 
+from setuptools.command.bdist_wheel import bdist_wheel
 from setuptools.command.build_ext import build_ext
 from setuptools.dist import Distribution
 from tomllib import load as toml_load
 
 from .cmd_build import build_gopy
 from .extension import GopyExtension
+from .flags import Flags
 
 
 def add_gopy_extension(dist: Distribution) -> None:
@@ -19,9 +21,24 @@ def add_gopy_extension(dist: Distribution) -> None:
             cmd = cast(build_gopy, self.get_finalized_command("build_gopy"))
             cmd.build_lib = self.build_lib
             cmd.build_temp = self.build_temp
-            self.run_command("build_gopy")
+            cmd.plat_name = self.plat_name
+            cmd.run()
 
     dist.cmdclass["build_ext"] = build_ext_gopy_extension
+
+    bdist_wheel_base_class = cast(
+        Type[bdist_wheel], dist.cmdclass.get("bdist_wheel", bdist_wheel)
+    )
+
+    class bdist_wheel_gopy_extension(bdist_wheel_base_class):  # type: ignore[misc,valid-type]
+        def get_tag(self) -> Tuple[str, str, str]:
+            python, abi, plat = super().get_tag()
+            override_plat = Flags.override_plat_name()
+            if override_plat:
+                plat = override_plat.replace("-", "_")
+            return python, abi, plat
+
+    dist.cmdclass["bdist_wheel"] = bdist_wheel_gopy_extension
 
 
 def gopy_extensions(

@@ -22,6 +22,16 @@ def arch_to_go(arch: str) -> str:
     return arch
 
 
+def arch_from_go(arch: str) -> str:
+    if arch == "arm64":
+        return "aarch64"
+    elif arch == "amd64":
+        return "x86_64"
+    elif arch == "386":
+        return "i386"
+    return arch
+
+
 class GoManager:
     @staticmethod
     def get_system_version() -> Optional[str]:

@@ -14,3 +14,7 @@ class Flags:
     @classmethod
     def cross_compile_image(cls) -> Optional[str]:
         return os.getenv("SETUPTOOLS_GOPY_XCOMPILE_IMAGE", None)
+
+    @classmethod
+    def force_cross_compile(cls) -> bool:
+        return os.getenv("SETUPTOOLS_GOPY_XCOMPILE_FORCE", "") == "y"

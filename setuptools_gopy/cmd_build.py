@@ -106,13 +106,23 @@ class build_gopy(GopyCommand):
         install_dir = os.path.join(self.build_lib, extension.output_folder())
         cwd = os.getcwd()
 
+        local_platform = sysconfig.get_platform()
         plat_name = self.plat_name
         override_plat_name = self.flags.override_plat_name()
         if override_plat_name:
             plat_name = override_plat_name
-        if plat_name is None or plat_name == sysconfig.get_platform():
+        platforms = plat_name.split(",") if plat_name else []
+        local_plat_name = False
+        if not platforms:
+            local_plat_name = True
+        if local_platform in platforms and not self.flags.force_cross_compile():
+            local_plat_name = True
+            platforms = list(filter(lambda x: x != local_platform, platforms))
+        xcompile_platforms = platforms
+
+        if local_plat_name:
             logger.debug(
-                f"building extension {extension.name} (cwd={cwd}, generated_dir={generated_dir}, go_install_dir={go_install_dir}, go_download_dir={go_download_dir})"
+                f"building extension {extension.name} locally (cwd={cwd}, generated_dir={generated_dir}, go_install_dir={go_install_dir}, go_download_dir={go_download_dir})"
             )
 
             goenv = self.go_manager.create_go_env(
@@ -124,12 +134,13 @@ class build_gopy(GopyCommand):
             res = self.__local_build(
                 goenv=goenv, generated_dir=generated_dir, ext=extension
             )
-        else:
+
+        if xcompile_platforms:
             logger.debug(
-                f"building extension {extension.name} for {plat_name} (cwd={cwd}, generated_dir={generated_dir})"
+                f"building extension {extension.name} for {xcompile_platforms} (cwd={cwd}, generated_dir={generated_dir})"
             )
             res = self.__docker_build(
-                platform=plat_name,
+                platforms=xcompile_platforms,
                 generated_dir=generated_dir,
                 ext=extension,
                 go_install_dir=go_install_dir,
@@ -335,7 +346,7 @@ class build_gopy(GopyCommand):
 
     def __docker_build(
         self,
-        platform: str,
+        platforms: List[str],
         generated_dir: str,
         ext: GopyExtension,
         go_install_dir: str,
@@ -362,9 +373,8 @@ class build_gopy(GopyCommand):
 
         all_files = []
 
-        platforms = platform.split(",")
-        for platform in platforms:
-            image = self.docker_manager.image_for_platform(platform)
+        for plat in platforms:
+            image = self.docker_manager.image_for_platform(plat)
             arch = self.docker_manager.get_arch_for_image(image)
             goenv, path, gomount = self.docker_manager.install_go_env(
                 arch=arch,

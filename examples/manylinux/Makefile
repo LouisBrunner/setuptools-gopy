@@ -1,3 +1,5 @@
+export SETUPTOOLS_GOPY_XCOMPILE_FORCE := y
+
 test:
 	python3 -m venv venv
 	. venv/bin/activate && pip install ../.. build

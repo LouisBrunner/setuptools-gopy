@@ -32,6 +32,11 @@ def arch_from_go(arch: str) -> str:
     return arch
 
 
+_BASE_GO_ENV = {
+    "CGO_ENABLED": "1",
+}
+
+
 class GoManager:
     @staticmethod
     def get_system_version() -> Optional[str]:
@@ -52,9 +57,7 @@ class GoManager:
         temp_dir: str,
         wanted_version: Optional[str] = None,
     ) -> GoEnv:
-        baseenv = {
-            "CGO_ENABLED": "1",
-        }
+        baseenv = {**_BASE_GO_ENV}
 
         logger.info(
             f"checking we have a suitable version of Go (wanted={wanted_version})"
@@ -119,6 +122,7 @@ class GoManager:
         goroot = os.path.join(gobase, "go")
         gopath = os.path.join(gobase, "path")
         goenv = {
+            **_BASE_GO_ENV,
             "GOBASE": gobase,
             "GOROOT": goroot,
             "GOPATH": gopath,

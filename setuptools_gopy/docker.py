@@ -49,7 +49,7 @@ class ScopedContainer(RunningContainer):
             *fcwd,
             *flatten(fenv),
             self.__id,
-            "bash",
+            "sh",
             "-c",
             " ".join(
                 [
@@ -100,7 +100,12 @@ class DockerManager:
 
     @classmethod
     def get_arch_for_image(cls, image: str) -> str:
-        run_command("docker", "pull", image)
+        try:
+            run_command("docker", "pull", image)
+        except GopyError as err:
+            logger.warn(
+                f"failed to pull image {image}, assuming it might be local: {err}"
+            )
         res = run_command("docker", "inspect", "--format", "{{.Architecture}}", image)
         return res.strip()
 
@@ -149,7 +154,7 @@ class DockerManager:
 
             yield ScopedContainer(runner=run_command, id=id, appendpath=appendpath)
         finally:
-            if cls.flags.keep_docker_image():
+            if not cls.flags.keep_docker_image():
                 try:
                     run_command("docker", "stop", "-t", "5", id)
                 except GopyError as e:
